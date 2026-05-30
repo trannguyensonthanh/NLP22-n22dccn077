@@ -1,0 +1,24 @@
+# Core
+numpy>=1.24
+pandas>=2.0
+tqdm>=4.65
+
+# NLP
+nltk>=3.8
+datasets>=2.14
+tokenizers>=0.15
+transformers>=4.40
+torch>=2.1
+
+# Grammar filtering (data quality)
+language-tool-python>=2.7
+
+# N-gram baseline
+# (uses nltk)
+
+# Demo
+streamlit>=1.30
+
+# Evaluation
+scikit-learn>=1.3
+matplotlib>=3.7

@@ -1,0 +1,38 @@
+GPT-2 fine-tuning summary
+========================================
+Total steps:    6250
+Epochs:         1.00
+Effective batch: ~32 (16 per GPU x 2 GPUs)
+
+Loss history (every 200 steps):
+  step   200: loss=4.601
+  step   400: loss=4.172
+  step   600: loss=4.082
+  step   800: loss=4.032
+  step  1000: loss=3.987
+  step  1200: loss=3.970
+  step  1400: loss=3.942
+  step  1600: loss=3.927
+  step  1800: loss=3.910
+  step  2000: loss=3.905
+  step  2200: loss=3.869
+  step  2400: loss=3.859
+  step  2600: loss=3.862
+  step  2800: loss=3.844
+  step  3000: loss=3.848
+  step  3200: loss=3.840
+  step  3400: loss=3.825
+  step  3600: loss=3.823
+  step  3800: loss=3.821
+  step  4000: loss=3.824
+  step  4200: loss=3.809
+  step  4400: loss=3.810
+  step  4600: loss=3.788
+  step  4800: loss=3.791
+  step  5000: loss=3.792
+  step  5200: loss=3.794
+  step  5400: loss=3.800
+  step  5600: loss=3.788
+  step  5800: loss=3.796
+  step  6000: loss=3.778
+  step  6200: loss=3.766

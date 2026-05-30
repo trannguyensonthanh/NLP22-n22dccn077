@@ -1,0 +1,9 @@
+Device: cuda
+  vocab size: 50,004
+  train: 500,000 | val: 20,000
+Epoch 1: train_loss=5.913 (ppl=369.8) | val_loss=5.263 (ppl=193.1)
+  saved best checkpoint
+Epoch 2: train_loss=5.227 (ppl=186.3) | val_loss=4.968 (ppl=143.8)
+  saved best checkpoint
+Epoch 3: train_loss=4.996 (ppl=147.8) | val_loss=4.829 (ppl=125.0)
+  saved best checkpoint
