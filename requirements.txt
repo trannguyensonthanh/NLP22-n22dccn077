@@ -1,24 +1,40 @@
-# Core
-numpy>=1.24
-pandas>=2.0
-tqdm>=4.65
-
-# NLP
-nltk>=3.8
-datasets>=2.14
-tokenizers>=0.15
-transformers>=4.40
-torch>=2.1
-
-# Grammar filtering (data quality)
-language-tool-python>=2.7
-
-# N-gram baseline
-# (uses nltk)
-
-# Demo
-streamlit>=1.30
-
-# Evaluation
-scikit-learn>=1.3
-matplotlib>=3.7
+# ============================================================
+# requirements.txt — NLP22 Autocomplete Project
+# ============================================================
+# Install:  pip install -r requirements.txt
+#
+# After install, download spaCy model:
+#   python -m spacy download en_core_web_sm
+#
+# After install, NLTK data is auto-downloaded on first run.
+# ============================================================
+ 
+# ── Core deep learning ──────────────────────────────────────
+torch>=2.0.0
+torchvision>=0.15.0          # needed by some torch utils
+ 
+# ── HuggingFace (GPT-2 fine-tune + datasets) ────────────────
+transformers>=4.35.0
+datasets>=2.14.0
+accelerate>=0.24.0           # Trainer backend (HuggingFace)
+tokenizers>=0.14.0           # Fast BPE tokenizer for GPT-2
+ 
+# ── NLP utilities ───────────────────────────────────────────
+nltk>=3.8.1                  # KN n-gram, tokenization, POS tagging
+spacy>=3.6.0                 # POS tagging for pos_filter + hmm_model
+                             # → after install: python -m spacy download en_core_web_sm
+ 
+# ── Optional: better dense retrieval (RAG Dense mode) ───────
+# If not installed, rag_dense.py falls back to word-avg embeddings
+sentence-transformers>=2.2.2
+ 
+# ── Progress bars ────────────────────────────────────────────
+tqdm>=4.65.0
+ 
+# ── Data science ─────────────────────────────────────────────
+numpy>=1.24.0
+pandas>=2.0.0
+ 
+# ── Streamlit dashboard ──────────────────────────────────────
+streamlit>=1.28.0
+plotly>=5.18.0               # Interactive charts on Score Comparison page
