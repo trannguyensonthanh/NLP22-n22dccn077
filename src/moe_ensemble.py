@@ -382,6 +382,8 @@ class MoEEnsemble:
         names = self.active_experts or list(self._loaded_models.keys())
 
         if self.mode == "static":
+            if not self.static_weights:
+                return {n: 1.0 / len(names) for n in names}
             total = sum(self.static_weights.get(n, 0) for n in names) or 1.0
             return {n: self.static_weights.get(n, 0) / total for n in names}
 
@@ -425,14 +427,21 @@ class MoEEnsemble:
             preds = self._expert_predict(name, prefix, top_k)
             expert_preds[name] = preds
             all_words.update(preds.keys())
+        combined = {}
+        normed_expert_preds = {}
+        for name in names:
+            preds = expert_preds[name]
+            if preds:
+                sum_p = sum(preds.values()) or 1.0
+                normed_expert_preds[name] = {w: p / sum_p for w, p in preds.items()}
+            else:
+                normed_expert_preds[name] = {}
 
-        # Combine with weighted sum
-        combined: Dict[str, float] = {}
         for word in all_words:
             score = 0.0
             for name in names:
                 w = weights.get(name, 0.0)
-                p = expert_preds[name].get(word, 0.0)
+                p = normed_expert_preds[name].get(word, 0.0) 
                 score += w * p
             combined[word] = score
 
@@ -489,7 +498,7 @@ class MoEEnsemble:
                     rewards  = []
                     for name in ALL_EXPERTS:
                         preds = self._expert_predict(name, prefix, top_k)
-                        hit   = 1.0 if true_w in [w for w, _ in preds] else 0.0
+                        hit = 1.0 if true_w in preds.keys() else 0.0
                         rewards.append(hit)
 
                     reward_t = torch.tensor(rewards, dtype=torch.float)
@@ -533,7 +542,6 @@ class MoEEnsemble:
         with open(path, "rb") as f:
             d = pickle.load(f)
         self.gate_net = d.get("net")
-        self.mode     = d.get("mode", "heuristic")
 
 
 # ===========================================================================
