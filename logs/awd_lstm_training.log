@@ -1,0 +1,19 @@
+Device: cuda
+  vocab size: 50,004
+  train: 500,000 | val: 20,000
+
+Epoch 0
+  LR: 0.000100 | Train PPL:  123.10 | Train Loss: 4.8130
+  Val PPL:   107.29 | Val Loss: 4.6754 | Val perplexity increased (no checkpoint saved)
+Epoch 1
+  LR: 0.000100 | Train PPL:   94.46 | Train Loss: 4.5487
+  Val PPL:    97.34 | Val Loss: 4.5783 | Val perplexity increased (no checkpoint saved)
+Epoch 2
+  LR: 0.000100 | Train PPL:   82.09 | Train Loss: 4.4080
+  Val PPL:    93.45 | Val Loss: 4.5381 | Val perplexity increased (no checkpoint saved)
+Epoch 3
+  LR: 0.000100 | Train PPL:   73.27 | Train Loss: 4.2924
+  Val PPL:    91.27 | Val Loss: 4.5141 | Val perplexity increased (no checkpoint saved)
+Epoch 4
+  LR: 0.000100 | Train PPL:   66.51 | Train Loss: 4.1984
+  Val PPL:    90.76 | Val Loss: 4.5085 | Val perplexity increased (no checkpoint saved)

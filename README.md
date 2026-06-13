@@ -2,7 +2,7 @@
 
 > **Next-word prediction system** trained on high-quality, well-edited English  
 > (WikiText-103 · BBC News · arXiv abstracts)  
-> Compares **11 model architectures** across 6 metric dimensions with an interactive Streamlit dashboard.
+> Compares **12 model architectures** across 6 metric dimensions with an interactive Streamlit dashboard.
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## 1. Project Overview
 
-This project implements and compares **11 different language model architectures** for English next-word autocomplete, ranging from classical statistical methods (n-gram, HMM) to modern deep learning (Transformer, Mamba SSM) and retrieval-augmented generation.
+This project implements and compares **12 different language model architectures** for English next-word autocomplete, ranging from classical statistical methods (n-gram, HMM) to modern deep learning (Transformer, Mamba SSM) and retrieval-augmented generation.
 
 ### Goals
 
@@ -54,37 +54,23 @@ All three sources are **professionally edited** — deliberately avoiding Common
 #### 2.1 4-gram Kneser-Ney (KN-4)
 **File:** `src/ngram_model.py`
 
-The classical baseline. Uses **Kneser-Ney smoothing** — the gold standard for n-gram smoothing — which estimates probabilities of unseen n-grams using continuation counts rather than raw frequency.
+The classical baseline. Uses a **custom Kneser-Ney smoothing** implementation (không dùng NLTK) — the gold standard for n-gram smoothing — which estimates probabilities of unseen n-grams using continuation counts rather than raw frequency.
 
 - Context window: 3 previous words
-- Smoothing: Kneser-Ney interpolated (NLTK `KneserNeyInterpolated`)
-- Fast-path: only scores words seen in matching context; backs off to shorter context before unigram fallback
-- **No GPU needed**; trains in under 5 minutes
+- Smoothing: Kneser-Ney interpolated (custom `KneserNeyLM` class)
+- Checkpoint ~38 MB (cũ dùng NLTK: 450 MB), load ~1s (cũ: 20-30s)
+- `min_count=2` pruning: bỏ n-gram xuất hiện 1 lần → giảm 80% size
+- **No GPU needed**; trains in ~23 seconds
 
 ```bash
-python -m src.ngram_model train --order 4
+python -m src.ngram_model train
 python -m src.ngram_model predict --prefix "the quick brown"
-```
-
-#### 2.2 N-gram Interpolated (1–4 gram)
-**File:** `src/ngram_model_2.py`
-
-Trains **four separate KN models** (orders 1, 2, 3, 4) and combines them with **learned linear interpolation weights** λ:
-
-```
-P_interp(w | ctx) = λ₁·P₁(w) + λ₂·P₂(w|w₋₁) + λ₃·P₃(w|w₋₂,w₋₁) + λ₄·P₄(w|w₋₃,w₋₂,w₋₁)
-```
-
-Weights are tuned on the validation set using coordinate ascent to maximise held-out likelihood. Usually reduces PPL by 15–20% vs. KN-4 alone.
-
-```bash
-python -m src.ngram_model_2 train_interpolated --order 4
-python -m src.ngram_model_2 predict_interp --prefix "the quick brown"
+python -m src.ngram_model evaluate
 ```
 
 ### Tier 2 — Generative / Discriminative Statistical
 
-#### 2.3 HMM Language Model
+#### 2.2 HMM Language Model
 **File:** `src/hmm_model.py`
 
 A **Hidden Markov Model** where:
@@ -101,7 +87,7 @@ python -m src.hmm_model predict --prefix "the quick brown"
 python -m src.hmm_model evaluate --limit 200
 ```
 
-#### 2.4 Maximum Entropy Language Model
+#### 2.3 Maximum Entropy Language Model
 **File:** `src/maxent_model.py`
 
 A **log-linear (MaxEnt) language model** trained with online SGD + L2 regularisation. Features include:
@@ -118,6 +104,22 @@ python -m src.maxent_model predict --prefix "the quick brown"
 ```
 
 ### Tier 3 — Neural RNN
+
+#### 2.4 RNN Basic
+**File:** `src/rnn_model.py`
+
+A simple **Elman RNN** language model — the most basic neural sequence model. Serves as a direct comparison to LSTM to demonstrate why gating mechanisms matter.
+
+- Single `tanh` recurrence per timestep (no gates)
+- Hidden dim: 512, Embedding dim: 256, Dropout: 0.3
+- ~4x fewer parameters than LSTM
+- Faster per step, but vanishing gradient limits long-range memory (~10-15 tokens)
+- Expected PPL: ~180-250 (vs LSTM ~119)
+
+```bash
+python -m src.rnn_model train --epochs 5
+python -m src.rnn_model predict --prefix "the quick brown"
+```
 
 #### 2.5 LSTM Language Model (Standard)
 **File:** `src/neural_model.py` (original) + `src/neural_model_2.py` (extended)
@@ -290,7 +292,7 @@ These are **optional post-processing layers** applied after a model generates it
 
 ### 3.1 MaxEnt Enhancement
 **File:** `src/maxent_model.py` (`MaxEntEnhancer`)
-**Compatible with:** N-gram KN-4, N-gram Interpolated, HMM-LM
+**Compatible with:** N-gram KN-4, HMM-LM
 
 Re-ranks the base model's output using MaxEnt scores. Interpolates:
 ```
@@ -334,7 +336,6 @@ Uses spaCy to tag the prefix, then boosts/penalises candidates based on POS tran
 
 ## 4. Project Structure
 
-```
 NLP22-n22dccn077/
 │
 ├── data/
@@ -351,23 +352,22 @@ NLP22-n22dccn077/
 │       └── test_small.txt          # 2.76 MB
 │
 ├── checkpoints/                    # Saved model weights
-│   ├── ngram_4.pkl                 # ✓ KN-4 model (already trained)
-│   ├── ngram_interp_4.pkl          # N-gram Interpolated
-│   ├── lstm_best.pt                # ✓ LSTM Standard (already trained)
-│   ├── lstm_vocab.pkl              # ✓ LSTM vocab (already trained)
+│   ├── ngram_4.pkl                 # ✓ KN-4 model (custom, ~38 MB)
+│   ├── hmm_lm.pkl                  # ✓ HMM Language Model
+│   ├── maxent_model.pkl            # ✓ MaxEnt LM
+│   ├── lstm_best.pt                # ✓ LSTM Standard
+│   ├── lstm_vocab.pkl              # ✓ LSTM vocab
 │   ├── lstm2_awd_best.pt           # AWD-LSTM
 │   ├── lstm2_awd_vocab.pkl         # AWD-LSTM vocab
 │   ├── elmo/
-│   │   ├── elmo_best.pt            # ELMo BiLSTM
+│   │   ├── elmo_best.pt            # ELMo BiLSTM (optional)
 │   │   └── vocab.pkl               # ELMo vocab
-│   ├── gpt2-finetuned/             # ✓ GPT-2 fine-tuned (already trained)
+│   ├── gpt2-finetuned/             # ✓ GPT-2 fine-tuned
 │   │   ├── config.json
 │   │   ├── pytorch_model.bin
 │   │   └── tokenizer files...
 │   ├── mamba_best.pt               # Mamba SSM
 │   ├── mamba_vocab.pkl             # Mamba vocab
-│   ├── hmm_lm.pkl                  # HMM Language Model
-│   ├── maxent_model.pkl            # MaxEnt LM
 │   ├── bm25_reranker.pkl           # BM25 corpus re-ranker index
 │   ├── rag_hybrid_index.pkl        # RAG dense+BM25 index
 │   └── moe_gate.pkl                # MoE gating network
@@ -378,41 +378,45 @@ NLP22-n22dccn077/
 │   ├── download_data.py            # Download WikiText, BBC, arXiv
 │   ├── preprocess.py               # Clean, filter, split corpus
 │   │
-│   ├── ngram_model.py              # KN-4 n-gram (original)
-│   ├── ngram_model_2.py            # Interpolated n-gram (new)
-│   ├── hmm_model.py                # HMM Language Model (new)
-│   ├── maxent_model.py             # MaxEnt LM + Enhancer (new)
+│   ├── ngram_model.py              # Custom KN-4 n-gram (rebuilt)
+│   ├── hmm_model.py                # HMM Language Model
+│   ├── maxent_model.py             # MaxEnt LM + Enhancer
+│   ├── rnn_model.py                # RNN Basic (Elman)
 │   ├── neural_model.py             # LSTM Standard (original)
-│   ├── neural_model_2.py           # LSTM + AWD-LSTM + Beam + ELMo (new)
-│   ├── elmo_embeddings.py          # ELMo BiLSTM embeddings (new)
-│   ├── finetune_gpt2.py            # GPT-2 fine-tuning (original)
-│   ├── mamba_model.py              # Mamba SSM (new)
+│   ├── neural_model_2.py           # LSTM + AWD-LSTM + Beam + ELMo
+│   ├── elmo_embeddings.py          # ELMo BiLSTM embeddings
+│   ├── finetune_gpt2.py            # GPT-2 fine-tuning
+│   ├── mamba_model.py              # Mamba SSM
 │   ├── rag_model.py                # RAG BM25 basic (original)
-│   ├── rag_dense.py                # RAG BM25+Dense+Hybrid (new)
-│   ├── moe_ensemble.py             # MoE + RRF ensemble (new)
+│   ├── rag_dense.py                # RAG BM25+Dense+Hybrid
+│   ├── moe_ensemble.py             # MoE + RRF ensemble
 │   │
-│   ├── pos_filter.py               # POS grammar re-ranker (new)
-│   ├── sentiment_filter.py         # Domain/register filter (new)
-│   ├── bm25_reranker.py            # BM25 corpus re-ranker (new)
+│   ├── pos_filter.py               # POS grammar re-ranker
+│   ├── sentiment_filter.py         # Domain/register filter
+│   ├── bm25_reranker.py            # BM25 corpus re-ranker
 │   │
 │   ├── evaluate.py                 # Original evaluation (ngram/lstm/gpt2)
-│   ├── evaluate_all.py             # Full evaluation — all 11 models (new)
+│   ├── evaluate_all.py             # Full evaluation — all models + JSON export
 │   └── eval_lambada.py             # LAMBADA benchmark
 │
 ├── demo/
-│   └── app.py                      # Streamlit interactive demo (updated)
+│   ├── app.py                      # Streamlit demo (original)
+│   └── app_2.py                    # Streamlit dashboard v2 (full features)
 │
 ├── notebooks/
-│   └── analysis.ipynb              # Quantitative + qualitative analysis
+│   ├── analysis.ipynb              # Original analysis notebook
+│   └── analysis_2.ipynb            # EDA + results visualization (v2)
 │
 ├── logs/
 │   ├── evaluation.log              # Raw evaluate output
 │   ├── eval_results.json           # Structured results → Streamlit charts
 │   ├── lstm_training.log
 │   ├── gpt2_training.log
+│   ├── ngram_training.log
 │   └── lambada_eval.log
 │
 ├── requirements.txt
+├── TRAIN_COMMANDS.md
 └── README.md
 ```
 
@@ -453,8 +457,8 @@ plotly>=5.18.0
 ### Run the demo immediately (with existing checkpoints)
 
 ```bash
-# Uses the 3 pre-trained models: KN-4, LSTM, GPT-2
-streamlit run demo/app.py
+# Uses the pre-trained models: KN-4, LSTM, GPT-2
+streamlit run demo/app_2.py
 ```
 
 ---
@@ -496,21 +500,23 @@ python -m src.preprocess --grammar-check
 
 | Checkpoint | Model | Notes |
 |------------|-------|-------|
-| `checkpoints/ngram_4.pkl` | KN-4 n-gram | PPL 1088 |
-| `checkpoints/lstm_best.pt` | LSTM Standard | PPL 118 |
+| `checkpoints/ngram_4.pkl` | KN-4 n-gram | PPL ~799 |
+| `checkpoints/hmm_lm.pkl` | HMM-LM | PPL ~1646 |
+| `checkpoints/maxent_model.pkl` | MaxEnt LM | trained |
+| `checkpoints/lstm_best.pt` | LSTM Standard | PPL ~120 |
 | `checkpoints/lstm_vocab.pkl` | LSTM vocab | — |
-| `checkpoints/gpt2-finetuned/` | GPT-2 fine-tuned | PPL 42.7 |
+| `checkpoints/gpt2-finetuned/` | GPT-2 fine-tuned | PPL ~41 |
 
 ### What needs to be trained (new models)
 
 #### Group A — CPU, run locally (fast)
 
 ```bash
-# 1. N-gram Interpolated (~15 min)
-python -m src.ngram_model_2 train_interpolated --order 4
-
-# 2. HMM Language Model (~30 min)
+# 1. HMM Language Model (~30 min)
 python -m src.hmm_model train
+
+# 2. RNN Basic (~20 min GPU / ~2h CPU)
+python -m src.rnn_model train --epochs 5
 
 # 3. MaxEnt LM (~20 min)
 python -m src.maxent_model train --epochs 3
@@ -546,12 +552,12 @@ python -m src.download_data
 python -m src.preprocess
 
 # 2. Statistical models (CPU, run in background)
-python -m src.ngram_model train --order 4
-python -m src.ngram_model_2 train_interpolated
+python -m src.ngram_model train
 python -m src.hmm_model train
 python -m src.maxent_model train
 
 # 3. Neural models (GPU)
+python -m src.rnn_model train --epochs 5
 python -m src.neural_model train --epochs 5
 python -m src.neural_model_2 train --variant awd --epochs 5
 python -m src.elmo_embeddings train --epochs 5
@@ -665,19 +671,10 @@ os.chdir('/kaggle/input/nlp22-project')
 python -m src.evaluate_all
 
 # Evaluate specific models only
-python -m src.evaluate_all --models ngram lstm gpt2 mamba
-
-# Quick smoke-test (50 sentences)
-python -m src.evaluate_all --limit 50
-
-# Show current results without re-running
-python -m src.evaluate_all --show-only
-
-# Update existing results (skip already-evaluated models)
-python -m src.evaluate_all --update --models lstm_awd
+python -m src.evaluate_all --models ngram rnn lstm maxent lstm_awd gpt2
 ```
 
-Results are saved to `logs/eval_results.json` and automatically loaded by Streamlit Page 2.
+Results are saved to `logs/eval_results.json` and automatically loaded by Streamlit.
 
 ### Metrics explained
 
@@ -712,7 +709,7 @@ LAMBADA tests whether a model can predict the final word of a passage using **wh
 ### Start the demo
 
 ```bash
-streamlit run demo/app.py
+streamlit run demo/app_2.py
 ```
 
 Opens at `http://localhost:8501`
@@ -722,21 +719,24 @@ Opens at `http://localhost:8501`
 **Panel configuration** — up to 3 model panels side-by-side. Each panel independently configures:
 
 **Model selection:**
-- N-gram KN-4 / Interpolated / HMM-LM / LSTM Standard / AWD-LSTM / GPT-2 / Mamba / RAG / Ensemble
+- N-gram KN-4 / HMM-LM / RNN Basic / MaxEnt / LSTM Standard / AWD-LSTM / GPT-2 / Mamba / RAG / Ensemble
 
 **Options shown per model (only compatible options appear):**
 
 | Model | MaxEnt | Beam | ELMo | BM25 rerank | Domain filter |
 |-------|:------:|:----:|:----:|:-----------:|:-------------:|
 | N-gram KN-4 | ✓ | ✗ | ✗ | ✗ | ✓ |
-| N-gram Interp | ✓ | ✗ | ✗ | ✗ | ✓ |
 | HMM-LM | ✓ | ✗ | ✗ | ✗ | ✓ |
-| LSTM Standard | ✗ | ✓ | ✓ | ✗ | ✓ |
-| AWD-LSTM | ✗ | ✓ | ✓ | ✗ | ✓ |
+| RNN Basic | ✗ | ✗ | ✗ | ✗ | ✓ |
+| MaxEnt (standalone) | ✗ | ✗ | ✗ | ✗ | ✓ |
+| LSTM Standard | ✗ | ✓ | ✓* | ✗ | ✓ |
+| AWD-LSTM | ✗ | ✓ | ✓* | ✗ | ✓ |
 | GPT-2 | ✗ | ✗ | ✗ | ✓ | ✓ |
 | Mamba | ✗ | ✗ | ✗ | ✗ | ✓ |
 | RAG | ✗ | ✗ | ✗ | ✗ | ✓ + retrieval mode |
 | Ensemble | ✗ | ✗ | ✗ | ✗ | ✗ + strategy + experts |
+
+*ELMo toggle only appears if checkpoint `elmo_best.pt` exists.
 
 **Domain filter options:**
 - `None` — model's natural distribution
@@ -770,24 +770,16 @@ All charts powered by Plotly. Data loaded from `logs/eval_results.json`.
 
 Results from the original three trained models (ground truth):
 
-| Model | PPL | Top-1 | Top-3 | Top-5 | MRR |
-|-------|----:|------:|------:|------:|----:|
-| 4-gram KN-4 | 1088.10 | n/a | n/a | n/a | n/a |
-| LSTM Standard | 118.35 | 0.242 | 0.370 | 0.433 | 0.185 |
-| GPT-2 fine-tuned | **42.74** | **0.352** | **0.501** | **0.562** | **0.284** |
-
-Expected results after training new models:
-
-| Model | PPL (est.) | Top-5 (est.) | Train time (T4) |
-|-------|--------:|----------:|--------------|
-| N-gram Interpolated | ~900 | n/a | ~15 min CPU |
-| HMM-LM | ~600 | ~0.15 | ~30 min CPU |
-| MaxEnt LM | — | ~0.20 | ~20 min CPU |
-| AWD-LSTM | ~100 | ~0.45 | ~30 min T4 |
-| LSTM + ELMo | ~110 | ~0.44 | (reuses ckpts) |
-| Mamba SSM | ~55 | ~0.48 | ~50 min T4 |
-| RAG (Hybrid) | — | ~0.57 | ~10 min CPU |
-| RRF Ensemble | — | best | no training |
+| Model | PPL | Top-1 | Top-5 | MRR | Latency |
+|-------|----:|------:|------:|----:|--------:|
+| 4-gram KN-4 | 799.35 | 0.197 | 0.357 | 0.255 | 5.3 ms |
+| HMM-LM | 1645.78 | 0.089 | 0.204 | 0.124 | 97.3 ms |
+| RNN Basic | 184.41 | 0.218 | 0.400 | 0.285 | 1.5 ms |
+| MaxEnt LM | — | 0.063 | 0.176 | 0.102 | 3.9 ms |
+| LSTM Standard | 119.57 | 0.280 | 0.464 | 0.348 | 5.1 ms |
+| AWD-LSTM | 264.89 | 0.249 | 0.416 | 0.309 | 4.7 ms |
+| GPT-2 fine-tuned | **40.89** | **0.359** | **0.571** | **0.439** | 11.8 ms |
+| Mamba SSM | 94.01 | 0.304 | 0.497 | 0.377 | 12.8 ms |
 
 ### LAMBADA results
 
@@ -811,12 +803,10 @@ Diminishing returns after k=5: displaying 5 suggestions captures almost all prac
 python -m src.download_data
 python -m src.preprocess [--grammar-check] [--seed 42]
 
-# ── N-gram ─────────────────────────────────────────────────────────────────
-python -m src.ngram_model train [--order 4] [--file train_small.txt]
+# ── N-gram ─────────────────────────────────────────────────────────────
+python -m src.ngram_model train [--order 4] [--min-count 2]
 python -m src.ngram_model predict --prefix "TEXT" [--order 4] [--top-k 5]
-
-python -m src.ngram_model_2 train_interpolated [--order 4] [--no-tune]
-python -m src.ngram_model_2 predict_interp --prefix "TEXT"
+python -m src.ngram_model evaluate [--order 4] [--limit 300]
 
 # ── HMM ────────────────────────────────────────────────────────────────────
 python -m src.hmm_model train [--add-k 0.01]
@@ -827,15 +817,16 @@ python -m src.hmm_model evaluate [--limit 200]
 python -m src.maxent_model train [--epochs 3] [--top-words 5000] [--lr 0.01]
 python -m src.maxent_model predict --prefix "TEXT"
 
-# ── LSTM ───────────────────────────────────────────────────────────────────
+# ── RNN ──────────────────────────────────────────────────────────────
+python -m src.rnn_model train [--epochs 5] [--batch-size 64]
+python -m src.rnn_model predict --prefix "TEXT"
+
+# ── LSTM ─────────────────────────────────────────────────────────────
 python -m src.neural_model train [--epochs 5] [--batch-size 64] [--lr 1e-3]
 python -m src.neural_model predict --prefix "TEXT"
 
 python -m src.neural_model_2 train --variant standard [--epochs 5]
 python -m src.neural_model_2 train --variant awd [--epochs 5]
-python -m src.neural_model_2 predict --variant standard --prefix "TEXT"
-python -m src.neural_model_2 predict --variant awd --prefix "TEXT" [--beam] [--elmo]
-python -m src.neural_model_2 beam --prefix "TEXT" [--beam-size 5]
 
 # ── ELMo ───────────────────────────────────────────────────────────────────
 python -m src.elmo_embeddings train [--epochs 5] [--hidden 256] [--layers 2]
@@ -860,10 +851,8 @@ python -m src.bm25_reranker test --prefix "TEXT"
 python -m src.moe_ensemble train_gate [--val val_small.txt] [--epochs 5]
 python -m src.moe_ensemble predict --prefix "TEXT" [--mode heuristic]
 
-# ── Evaluation ─────────────────────────────────────────────────────────────
-python -m src.evaluate_all [--models ngram lstm gpt2] [--limit 300]
-python -m src.evaluate_all --show-only
-python -m src.evaluate_all --update --models lstm_awd mamba
+# ── Evaluation ───────────────────────────────────────────────────────
+python -m src.evaluate_all [--models ngram rnn lstm maxent lstm_awd gpt2]
 python -m src.eval_lambada
 ```
 
@@ -874,7 +863,7 @@ The new `neural_model_2.py` falls back automatically to `lstm_best.pt` and `lstm
 ### Adding a new model
 
 1. Create `src/your_model.py` with `train()`, `load_model()`, `predict_next(model, ..., prefix, top_k)` functions
-2. Add a loader `_load_yourmodel()` in `demo/app.py`
+2. Add a loader `_load_yourmodel()` in `demo/app_2.py`
 3. Add `"your_model"` to `TIER_OPTIONS` and `TIER_CAPABILITIES` dicts
 4. Add the `elif tier == "your_model"` branch in `get_predictions()`
 5. Add an evaluator in `src/evaluate_all.py` and register it in `EVALUATORS`
@@ -890,8 +879,7 @@ This project directly implements concepts from the NLP course lectures:
 | Ch.2 — HMM POS Tagging | HMM architecture, Viterbi decoding | `src/hmm_model.py` |
 | Ch.2 — Beam Search | Beam search decoding | `src/neural_model_2.py` (`beam_search_predict`) |
 | Ch.3 — N-gram LMs | MLE, smoothing, perplexity | `src/ngram_model.py` |
-| Ch.3 — KN Smoothing | Kneser-Ney interpolated | `src/ngram_model.py` (NLTK `KneserNeyInterpolated`) |
-| Ch.3 — Interpolation | Linear λ-weighted mixture | `src/ngram_model_2.py` (`InterpolatedNgramModel`) |
+| Ch.3 — KN Smoothing | Kneser-Ney interpolated | `src/ngram_model.py` (custom `KneserNeyLM`) |
 | Ch.3 — Perplexity | Evaluation metric | `src/evaluate_all.py` |
 | Ch.4 — Naïve Bayes | Sentiment/register classifier | `src/sentiment_filter.py` (`NaiveBayesSentiment`) |
 | Ch.4 — MaxEnt / Log-linear | MaxEnt LM + enhancer | `src/maxent_model.py` |

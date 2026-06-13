@@ -9,6 +9,9 @@ Metrics:
 Usage:
     python -m src.evaluate
 """
+
+# cái này cũ rồi không cần phải đụng vào nhé
+
 import math
 from pathlib import Path
 

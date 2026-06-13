@@ -39,7 +39,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 
@@ -179,11 +179,8 @@ class MaxEntLM:
 
     # ------------------------------------------------------------------
     def fit(self, sentences: List[List[str]], verbose: bool = True):
-        """
-        Online SGD training on tokenised sentences.
-        Each (context, next_word) pair is one training example.
-        """
-        # Build vocabulary from top_words most frequent
+        import random # Thêm import này ở đầu hàm hoặc đầu file
+        
         counter: Counter = Counter()
         for sent in sentences:
             counter.update(sent)
@@ -195,18 +192,25 @@ class MaxEntLM:
             print(f"[MaxEnt] vocab: {len(self.vocab_list):,}  "
                   f"sentences: {len(sentences):,}")
 
+        # Chuẩn bị sẵn tập từ vựng rút gọn ngoài vòng lặp để tránh tạo lại list liên tục
+        vocab_pool = self.vocab_list[:100] 
+
         for epoch in range(1, self.n_epochs + 1):
             total_loss = 0.0
             n_examples = 0
-            for sent in sentences:
+            
+            # Sử dụng tqdm hiển thị tiến trình
+            for sent in tqdm(sentences, desc=f"MaxEnt Epoch {epoch}"):
                 for i in range(1, len(sent)):
                     context  = sent[max(0, i - 3): i]
                     true_w   = sent[i]
                     if true_w not in vocab_set:
                         continue
 
-                    # Sample negative candidates (subset of vocab)
-                    neg_sample = list(set(self.vocab_list[:200]) - {true_w})[:49]
+                    # Tối ưu hóa: Lấy ngẫu nhiên 9 từ sai từ vocab_pool (Tránh dùng phép toán set cực chậm)
+                    neg_sample = random.sample(vocab_pool, min(12, len(vocab_pool)))
+                    neg_sample = [w for w in neg_sample if w != true_w][:9] # Giảm xuống 9 ứng viên
+                    
                     candidates = [true_w] + neg_sample
 
                     probs = self._softmax_over_candidates(context, candidates)
@@ -216,7 +220,6 @@ class MaxEntLM:
 
                     # SGD update
                     true_feats = self.feat_extractor.features(context, true_w)
-                    # gradient: f(ctx, true_w) - E[f(ctx, w)]
                     expected: Dict[str, float] = defaultdict(float)
                     for w, p_w in probs.items():
                         for k, v in self.feat_extractor.features(context, w).items():
@@ -348,6 +351,7 @@ def train_model(
             toks = line.strip().lower().split()
             if toks:
                 sentences.append(toks)
+    sentences = sentences[:50000] # Giới hạn 50k câu để training nhanh hơn
     print(f"[MaxEnt] {len(sentences):,} sentences")
 
     model = MaxEntLM(top_words=top_words, lr=lr, n_epochs=epochs)

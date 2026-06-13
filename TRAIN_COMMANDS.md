@@ -4,19 +4,18 @@
 
 ```
 checkpoints/
-├── ngram_4.pkl                   ← ✓ đã có sẵn
-├── ngram_interp_4.pkl            ← cần train
-├── hmm_lm.pkl                    ← cần train
-├── maxent_model.pkl              ← cần train
+├── ngram_4.pkl                   ← ✓ đã có sẵn (~38 MB, custom KN)
+├── hmm_lm.pkl                    ← ✓ đã có sẵn
+├── maxent_model.pkl              ← ✓ đã có sẵn
+├── rnn_best.pt                   ← cần train (GPU recommended)
+├── rnn_vocab.pkl                 ← cần train
 ├── lstm_best.pt                  ← ✓ đã có sẵn
 ├── lstm_vocab.pkl                ← ✓ đã có sẵn
-├── lstm2_standard_best.pt        ← cần train (hoặc dùng lstm_best.pt)
-├── lstm2_standard_vocab.pkl      ← cần train (hoặc dùng lstm_vocab.pkl)
 ├── lstm2_awd_best.pt             ← cần train (GPU)
 ├── lstm2_awd_vocab.pkl           ← cần train (GPU)
 ├── elmo/
-│   ├── elmo_best.pt              ← cần train (GPU)
-│   └── vocab.pkl                 ← cần train (GPU)
+│   ├── elmo_best.pt              ← optional (GPU)
+│   └── vocab.pkl                 ← optional (GPU)
 ├── gpt2-finetuned/               ← ✓ đã có sẵn (nguyên folder)
 │   ├── config.json
 │   ├── pytorch_model.bin
@@ -36,25 +35,16 @@ Chạy từng lệnh theo thứ tự. Có thể mở nhiều terminal chạy son
 
 ### 1.1 N-gram KN-4 (đã có, skip nếu checkpoint tồn tại)
 ```bash
-python -m src.ngram_model train --order 4
+python -m src.ngram_model train
 ```
-- Output: `checkpoints/ngram_4.pkl`
-- Thời gian: ~5 phút
+- Output: `checkpoints/ngram_4.pkl` (~38 MB)
+- Thời gian: ~23 giây
 - Data dùng: `data/processed/train_small.txt`
+- Ghi chú: Custom KN (không dùng NLTK), min_count=2 mặc định
 
 ---
 
-### 1.2 N-gram Interpolated (1–4 gram với λ tuning)
-```bash
-python -m src.ngram_model_2 train_interpolated --order 4
-```
-- Output: `checkpoints/ngram_interp_4.pkl`
-- Thời gian: ~15 phút
-- Data dùng: `data/processed/train_small.txt` + `val_small.txt` (lambda tuning)
-
----
-
-### 1.3 HMM Language Model
+### 1.2 HMM Language Model
 ```bash
 python -m src.hmm_model train
 ```
@@ -65,7 +55,7 @@ python -m src.hmm_model train
 
 ---
 
-### 1.4 MaxEnt Language Model
+### 1.3 MaxEnt Language Model
 ```bash
 python -m src.maxent_model train --epochs 3 --top-words 5000 --lr 0.01
 ```
@@ -75,7 +65,7 @@ python -m src.maxent_model train --epochs 3 --top-words 5000 --lr 0.01
 
 ---
 
-### 1.5 BM25 Corpus Re-ranker (index only, không train neural)
+### 1.4 BM25 Corpus Re-ranker (index only, không train neural)
 ```bash
 python -m src.bm25_reranker build --max-windows 50000
 ```
@@ -85,7 +75,7 @@ python -m src.bm25_reranker build --max-windows 50000
 
 ---
 
-### 1.6 RAG Dense Index (BM25 + Dense hybrid)
+### 1.5 RAG Dense Index (BM25 + Dense hybrid)
 ```bash
 python -m src.rag_dense build --mode hybrid --corpus data/processed/train_small.txt
 ```
@@ -96,7 +86,7 @@ python -m src.rag_dense build --mode hybrid --corpus data/processed/train_small.
 
 ---
 
-### 1.7 MoE Gating Network (train sau khi có đủ các model khác)
+### 1.6 MoE Gating Network (train sau khi có đủ các model khác)
 ```bash
 python -m src.moe_ensemble train_gate --val val_small.txt --epochs 5
 ```
@@ -111,12 +101,22 @@ python -m src.moe_ensemble train_gate --val val_small.txt --epochs 5
 
 **Lưu ý Colab:** Thêm `!` trước mỗi lệnh. Ví dụ:
 ```python
-!python -m src.neural_model_2 train --variant awd --epochs 5
+!python -m src.rnn_model train --epochs 5
 ```
 
 ---
 
-### 2.1 LSTM Standard (nếu muốn train lại với neural_model_2 format)
+### 2.1 RNN Basic
+```bash
+python -m src.rnn_model train --epochs 5 --batch-size 64
+```
+- Output: `checkpoints/rnn_best.pt` + `checkpoints/rnn_vocab.pkl`
+- Thời gian: ~20 phút (T4) / ~2–3 giờ (CPU)
+- Ghi chú: Model đơn giản nhất, dùng để so sánh với LSTM
+
+---
+
+### 2.2 LSTM Standard (nếu muốn train lại với neural_model_2 format)
 ```bash
 python -m src.neural_model_2 train --variant standard --epochs 5 --batch-size 64 --lr 0.001
 ```
@@ -126,7 +126,7 @@ python -m src.neural_model_2 train --variant standard --epochs 5 --batch-size 64
 
 ---
 
-### 2.2 AWD-LSTM
+### 2.3 AWD-LSTM
 ```bash
 python -m src.neural_model_2 train --variant awd --epochs 5 --batch-size 64 --lr 30.0
 ```
@@ -136,17 +136,17 @@ python -m src.neural_model_2 train --variant awd --epochs 5 --batch-size 64 --lr
 
 ---
 
-### 2.3 ELMo Contextual Embeddings
+### 2.4 ELMo Contextual Embeddings (optional)
 ```bash
 python -m src.elmo_embeddings train --epochs 5 --batch-size 64 --hidden 256 --layers 2 --lr 0.001
 ```
 - Output: `checkpoints/elmo/elmo_best.pt` + `checkpoints/elmo/vocab.pkl`
 - Thời gian: ~40 phút (T4) / ~5–6 giờ (CPU)
-- Ghi chú: Folder `checkpoints/elmo/` tự tạo khi chạy
+- Ghi chú: Optional — nếu không train, ELMo toggle sẽ tự ẩn trong Streamlit
 
 ---
 
-### 2.4 Mamba SSM
+### 2.5 Mamba SSM
 ```bash
 python -m src.mamba_model train --epochs 5 --batch-size 32 --d-model 256 --layers 4 --d-state 16 --lr 0.001
 ```
@@ -163,21 +163,21 @@ python -m src.mamba_model train --epochs 5 --batch-size 32 --d-model 256 --layer
 **Local (chạy background):**
 ```bash
 # Terminal 1
-python -m src.ngram_model_2 train_interpolated &
 python -m src.hmm_model train &
+python -m src.maxent_model train &
 
 # Terminal 2 (sau khi terminal 1 xong ~30 phút)
-python -m src.maxent_model train &
 python -m src.bm25_reranker build &
 python -m src.rag_dense build --mode hybrid &
 ```
 
 **Colab (3 notebook riêng biệt chạy song song):**
 ```python
-# Notebook 1 — AWD-LSTM
+# Notebook 1 — RNN + AWD-LSTM
+!python -m src.rnn_model train --epochs 5
 !python -m src.neural_model_2 train --variant awd --epochs 5
 
-# Notebook 2 — ELMo
+# Notebook 2 — ELMo (optional)
 !python -m src.elmo_embeddings train --epochs 5
 
 # Notebook 3 — Mamba
@@ -196,7 +196,7 @@ python -m src.evaluate_all
 
 ```bash
 # Bước 1: Model thống kê (chạy được, không quá chậm)
-python -m src.ngram_model_2 train_interpolated
+python -m src.ngram_model train
 python -m src.hmm_model train
 python -m src.maxent_model train
 
@@ -205,6 +205,7 @@ python -m src.bm25_reranker build
 python -m src.rag_dense build --mode bm25   # chỉ dùng bm25, bỏ qua dense
 
 # Bước 3: Neural (chỉ chạy nếu có đủ thời gian — qua đêm)
+python -m src.rnn_model train --epochs 3
 python -m src.neural_model_2 train --variant awd --epochs 3   # giảm epoch xuống 3
 # ELMo và Mamba: bỏ qua nếu không có GPU — quá chậm trên CPU
 
@@ -224,26 +225,16 @@ python -m src.evaluate_all
 python -m src.evaluate_all
 ```
 → Tự detect model nào có checkpoint, skip model chưa train.
-→ Lưu kết quả vào `logs/eval_results.json` → Streamlit Page 2 tự load.
+→ Lưu kết quả vào `logs/eval_results.json` → Streamlit tự load.
 
 ### Evaluate chỉ một số model
 ```bash
-python -m src.evaluate_all --models ngram ngram_interp hmm lstm gpt2
+python -m src.evaluate_all --models ngram rnn hmm lstm maxent lstm_awd gpt2
 ```
 
-### Evaluate nhanh (50 câu, kiểm tra xem chạy được không)
+### Cập nhật kết quả cho model vừa train xong
 ```bash
-python -m src.evaluate_all --limit 50
-```
-
-### Xem kết quả hiện tại không cần chạy lại
-```bash
-python -m src.evaluate_all --show-only
-```
-
-### Cập nhật kết quả cho model vừa train xong (không chạy lại model khác)
-```bash
-python -m src.evaluate_all --models mamba --limit 300
+python -m src.evaluate_all --models rnn lstm_awd
 ```
 
 ---
@@ -254,29 +245,20 @@ python -m src.evaluate_all --models mamba --limit 300
 # N-gram KN-4
 python -m src.ngram_model predict --prefix "the quick brown fox"
 
-# N-gram Interpolated
-python -m src.ngram_model_2 predict_interp --prefix "the quick brown fox"
-
 # HMM
 python -m src.hmm_model predict --prefix "the quick brown fox"
 
 # MaxEnt
 python -m src.maxent_model predict --prefix "the quick brown fox"
 
+# RNN Basic
+python -m src.rnn_model predict --prefix "the quick brown fox"
+
 # LSTM Standard (checkpoint cũ)
 python -m src.neural_model predict --prefix "the quick brown fox"
 
-# LSTM Standard (checkpoint mới)
-python -m src.neural_model_2 predict --variant standard --prefix "the quick brown fox"
-
-# LSTM + Beam Search
-python -m src.neural_model_2 beam --prefix "the quick brown fox" --beam-size 5
-
 # AWD-LSTM
 python -m src.neural_model_2 predict --variant awd --prefix "the quick brown fox"
-
-# AWD-LSTM + Beam Search
-python -m src.neural_model_2 predict --variant awd --beam --prefix "the quick brown fox"
 
 # ELMo (test embedding output)
 python -m src.elmo_embeddings test --sentence "the bank is open near the river bank"
@@ -302,7 +284,7 @@ python -m src.eval_lambada
 ## Chạy Streamlit (sau khi có checkpoint)
 
 ```bash
-streamlit run demo/app.py
+streamlit run demo/app_2.py
 ```
 
 Mở trình duyệt tại: `http://localhost:8501`

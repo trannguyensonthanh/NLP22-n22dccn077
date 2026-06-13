@@ -2,6 +2,10 @@
 data/
 checkpoints/
 
+autocomplete-ui/
+
+backend/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -17,3 +21,4 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+

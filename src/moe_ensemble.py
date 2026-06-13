@@ -9,7 +9,7 @@ that decides how much weight to give each model based on the current prefix.
 Key idea:
     "When the prefix is academic → weight GPT-2 more"
     "When the prefix is short/informal → weight n-gram more"
-    "When the prefix has rare words → weight LSTM+ELMo more"
+    "When the prefix has rare words → weight LSTM more"
 
 Architecture:
     Gating features:
@@ -31,12 +31,11 @@ Architecture:
 
 Experts (all optional — only loaded ones are used):
     0: N-gram KN-4         (ngram_model)
-    1: N-gram Interpolated (ngram_model_2)
-    2: HMM-LM              (hmm_model)
-    3: LSTM Standard       (neural_model / neural_model_2)
-    4: LSTM AWD            (neural_model_2)
-    5: GPT-2 fine-tuned    (finetune_gpt2)
-    6: Mamba               (mamba_model)
+    1: HMM-LM              (hmm_model)
+    2: LSTM Standard       (neural_model / neural_model_2)
+    3: LSTM AWD            (neural_model_2)
+    4: GPT-2 fine-tuned    (finetune_gpt2)
+    5: Mamba               (mamba_model)
 
 Usage:
     from src.moe_ensemble import MoEEnsemble
@@ -73,7 +72,7 @@ CKPT.mkdir(exist_ok=True)
 MOE_CKPT = CKPT / "moe_gate.pkl"
 
 # Registered expert names
-ALL_EXPERTS = ["ngram", "ngram_interp", "hmm", "lstm", "lstm_awd", "gpt2", "mamba"]
+ALL_EXPERTS = ["ngram", "hmm", "lstm", "lstm_awd", "gpt2", "mamba"]
 
 
 # ===========================================================================
@@ -297,10 +296,7 @@ class MoEEnsemble:
                 m = ngram_model.load_model(4)
                 self._loaded_models[name] = ("ngram", ngram_model, m)
 
-            elif name == "ngram_interp":
-                from src.ngram_model_2 import InterpolatedNgramModel
-                m = InterpolatedNgramModel.load(4)
-                self._loaded_models[name] = ("ngram_interp", None, m)
+
 
             elif name == "hmm":
                 from src import hmm_model
@@ -349,10 +345,7 @@ class MoEEnsemble:
                 _, mod, m = entry
                 from nltk.tokenize import word_tokenize
                 preds = mod.predict_next(m, word_tokenize(prefix.lower()), top_k * 4)
-            elif kind == "ngram_interp":
-                _, _, m = entry
-                from nltk.tokenize import word_tokenize
-                preds = m.predict_next(word_tokenize(prefix.lower()), top_k * 4)
+
             elif kind == "hmm":
                 _, mod, m = entry
                 preds = mod.predict_next(m, prefix.lower().split(), top_k * 4)

@@ -11,26 +11,29 @@ Quy tắc hiển thị options:
         ✗ ELMo (không áp dụng)
         ✗ BM25 reranker (không đủ mạnh để rerank)
 
-    N-gram Interpolated:
-        ✓ MaxEnt enhancement
-        ✓ Domain filter
-        ✗ các thứ khác
-
     HMM-LM:
         ✓ MaxEnt enhancement
         ✓ Domain filter
         ✗ các thứ khác
 
+    RNN Basic:
+        ✓ Domain filter
+        ✗ các thứ khác
+
+    MaxEnt (standalone):
+        ✓ Domain filter
+        ✗ các thứ khác
+
     LSTM Standard:
         ✓ Greedy / Beam Search (chọn 1)
-        ✓ ELMo toggle
+        ✓ ELMo toggle (nếu đã train ELMo)
         ✓ Domain filter
         ✗ MaxEnt (không compatible)
-        ✗ BM25 reranker (không hợp lý vì đã có ELMo)
+        ✗ BM25 reranker
 
     AWD-LSTM:
         ✓ Greedy / Beam Search (chọn 1)
-        ✓ ELMo toggle
+        ✓ ELMo toggle (nếu đã train ELMo)
         ✓ Domain filter
         ✗ MaxEnt
 
@@ -112,8 +115,9 @@ st.markdown("""
 # Tier display name → internal key
 TIER_OPTIONS = {
     "N-gram KN-4":          "ngram",
-    "N-gram Interpolated":  "ngram_interp",
     "HMM-LM":               "hmm",
+    "RNN Basic":            "rnn",
+    "MaxEnt (standalone)":  "maxent_standalone",
     "LSTM Standard":        "lstm_std",
     "AWD-LSTM":             "lstm_awd",
     "GPT-2 fine-tuned":     "gpt2",
@@ -125,15 +129,16 @@ TIER_OPTIONS = {
 # Which options are valid for each tier
 # Keys: maxent, beam, elmo, bm25_rerank, domain_filter, rag_mode, ensemble_opts
 TIER_CAPABILITIES = {
-    "ngram":       {"maxent": True,  "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "ngram_interp":{"maxent": True,  "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "hmm":         {"maxent": True,  "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "lstm_std":    {"maxent": False, "beam": True,  "elmo": True,  "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "lstm_awd":    {"maxent": False, "beam": True,  "elmo": True,  "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "gpt2":        {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": True,  "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "mamba":       {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
-    "rag":         {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": True,  "ensemble_opts": False},
-    "ensemble":    {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": False, "rag_mode": False, "ensemble_opts": True},
+    "ngram":              {"maxent": True,  "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "hmm":                {"maxent": True,  "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "rnn":                {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "maxent_standalone":  {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "lstm_std":           {"maxent": False, "beam": True,  "elmo": True,  "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "lstm_awd":           {"maxent": False, "beam": True,  "elmo": True,  "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "gpt2":               {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": True,  "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "mamba":              {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": False, "ensemble_opts": False},
+    "rag":                {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": True,  "rag_mode": True,  "ensemble_opts": False},
+    "ensemble":           {"maxent": False, "beam": False, "elmo": False, "bm25_rerank": False, "domain_filter": False, "rag_mode": False, "ensemble_opts": True},
 }
 
 DOMAIN_LABELS = {
@@ -144,15 +149,16 @@ DOMAIN_LABELS = {
 }
 
 TIER_COLORS = {
-    "ngram":        "#5C6BC0",
-    "ngram_interp": "#7986CB",
-    "hmm":          "#F57C00",
-    "lstm_std":     "#8E24AA",
-    "lstm_awd":     "#AB47BC",
-    "gpt2":         "#00838F",
-    "mamba":        "#2E7D32",
-    "rag":          "#1565C0",
-    "ensemble":     "#37474F",
+    "ngram":              "#5C6BC0",
+    "hmm":                "#F57C00",
+    "rnn":                "#EF5350",
+    "maxent_standalone":  "#26A69A",
+    "lstm_std":           "#8E24AA",
+    "lstm_awd":           "#AB47BC",
+    "gpt2":               "#00838F",
+    "mamba":              "#2E7D32",
+    "rag":                "#1565C0",
+    "ensemble":           "#37474F",
 }
 
 
@@ -181,10 +187,16 @@ def _load_ngram():
     ngram_model._ensure_nltk()
     return ngram_model, ngram_model.load_model(4)
 
-@st.cache_resource(show_spinner="Loading interpolated n-gram…")
-def _load_ngram_interp():
-    from src.ngram_model_2 import InterpolatedNgramModel
-    return InterpolatedNgramModel.load(4)
+@st.cache_resource(show_spinner="Loading RNN Basic…")
+def _load_rnn():
+    from src import rnn_model
+    mod, vocab, device = rnn_model.load_model()
+    return rnn_model, mod, vocab, device
+
+@st.cache_resource(show_spinner="Loading MaxEnt standalone…")
+def _load_maxent_standalone():
+    from src import maxent_model
+    return maxent_model, maxent_model.load_model()
 
 @st.cache_resource(show_spinner="Loading HMM…")
 def _load_hmm():
@@ -297,16 +309,20 @@ def get_predictions(cfg: dict, prefix: str, top_k: int):
             mod, model = _load_ngram()
             raw = mod.predict_next(model, word_tokenize(prefix.lower()), top_k * 4)
 
-        # ---- N-gram Interpolated ----
-        elif tier == "ngram_interp":
-            from nltk.tokenize import word_tokenize
-            model = _load_ngram_interp()
-            raw = model.predict_next(word_tokenize(prefix.lower()), top_k * 4)
-
         # ---- HMM ----
         elif tier == "hmm":
             mod, model = _load_hmm()
             raw = mod.predict_next(model, prefix.lower().split(), top_k * 4)
+
+        # ---- RNN Basic ----
+        elif tier == "rnn":
+            mod, model, vocab, device = _load_rnn()
+            raw = mod.predict_next(model, vocab, device, prefix, top_k * 4)
+
+        # ---- MaxEnt standalone ----
+        elif tier == "maxent_standalone":
+            mod, model = _load_maxent_standalone()
+            raw = model.predict_next(prefix.lower().split(), top_k * 4)
 
         # ---- LSTM Standard ----
         elif tier == "lstm_std":
@@ -502,11 +518,17 @@ if "Autocomplete" in page:
                         help="Beam size=5. Thay greedy top-k bằng beam search → đa dạng hơn. Chỉ dùng cho LSTM."
                     )
                 if caps["elmo"]:
-                    cfg["use_elmo"] = st.checkbox(
-                        "🧠 ELMo contextual embeddings",
-                        key=f"elmo_{idx}",
-                        help="Dùng ELMo BiLSTM làm input embedding thay vì static embedding. Cần train elmo_embeddings trước."
-                    )
+                    # Only show ELMo toggle if checkpoint exists
+                    elmo_ckpt = ROOT / "checkpoints" / "elmo" / "elmo_best.pt"
+                    if elmo_ckpt.exists():
+                        cfg["use_elmo"] = st.checkbox(
+                            "🧠 ELMo contextual embeddings",
+                            key=f"elmo_{idx}",
+                            help="Dùng ELMo BiLSTM làm input embedding thay vì static embedding."
+                        )
+                    else:
+                        st.caption("⚠️ ELMo chưa train — bỏ qua. Chạy: `python -m src.elmo_embeddings train`")
+                        cfg["use_elmo"] = False
                 st.markdown('</div>', unsafe_allow_html=True)
 
             # 3. BM25 reranker (gpt2 only)
@@ -548,7 +570,7 @@ if "Autocomplete" in page:
                     }[x],
                     key=f"ens_strat_{idx}",
                 )
-                all_experts = ["ngram", "ngram_interp", "hmm", "lstm_std", "lstm_awd", "gpt2", "mamba"]
+                all_experts = ["ngram", "hmm", "rnn", "maxent_standalone", "lstm_std", "lstm_awd", "gpt2", "mamba"]
                 cfg["ens_experts"] = st.multiselect(
                     "Expert models",
                     all_experts,
@@ -556,8 +578,9 @@ if "Autocomplete" in page:
                     key=f"ens_exp_{idx}",
                     format_func=lambda x: {
                         "ngram": "N-gram KN-4",
-                        "ngram_interp": "N-gram Interp",
                         "hmm": "HMM-LM",
+                        "rnn": "RNN Basic",
+                        "maxent_standalone": "MaxEnt",
                         "lstm_std": "LSTM Standard",
                         "lstm_awd": "AWD-LSTM",
                         "gpt2": "GPT-2",
@@ -686,8 +709,8 @@ elif "Score" in page:
     # Default skeleton (filled after evaluate_all.py runs)
     DEFAULT = {
         "4-gram KN":            {"ppl": 1088.10, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": True},
-        "N-gram Interpolated":  {"ppl": None, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": False},
         "HMM-LM":               {"ppl": None, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": False},
+        "RNN Basic":            {"ppl": None, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": False},
         "MaxEnt LM":            {"ppl": None, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": False},
         "LSTM Standard":        {"ppl": 118.35, "top1": 0.242, "top5": 0.433, "mrr": 0.185, "latency_ms": None, "trained": True},
         "LSTM + Beam Search":   {"ppl": None, "top1": None, "top5": None, "mrr": None, "latency_ms": None, "trained": True},
@@ -943,8 +966,8 @@ os.chdir('/content/drive/MyDrive/NLP22-n22dccn077')
         st.markdown("""
 ```bash
 # --- CPU, train locally (fast) ---
-python -m src.ngram_model_2 train_interpolated --order 4
 python -m src.hmm_model train
+python -m src.rnn_model train
 python -m src.maxent_model train --epochs 3
 python -m src.rag_dense build --mode hybrid
 python -m src.bm25_reranker build
@@ -956,8 +979,8 @@ python -m src.elmo_embeddings train --epochs 5
 python -m src.mamba_model train --epochs 5 --layers 4
 
 # --- Evaluate all ---
-python -m src.evaluate_all
-python -m src.evaluate_all --show-only   # see results without re-running
+python -m src.evaluate_2
+python -m src.evaluate_2 --models rnn maxent lstm_awd
 ```
         """)
 
@@ -965,13 +988,13 @@ python -m src.evaluate_all --show-only   # see results without re-running
     st.markdown("### Model comparison")
     arch_data = [
         ("4-gram KN",         "Statistical",  "ngram_model.py",       "~1088",  "n/a",    "< 1ms",  "✓ done"),
-        ("N-gram Interpolated","Statistical",  "ngram_model_2.py",     "~900",   "n/a",    "< 1ms",  "need train"),
         ("HMM-LM",            "Generative",   "hmm_model.py",         "~600",   "~0.15",  "~5ms",   "need train"),
-        ("MaxEnt LM",         "Log-linear",   "maxent_model.py",      "n/a",    "~0.20",  "< 5ms",  "need train"),
+        ("RNN Basic",         "Neural RNN",   "rnn_model.py",         "~250",   "~0.30",  "~8ms",   "need train"),
+        ("MaxEnt LM",         "Log-linear",   "maxent_model.py",      "~800?",  "~0.20",  "< 5ms",  "need train"),
         ("LSTM Standard",     "Neural RNN",   "neural_model.py",      "~118",   "0.433",  "~10ms",  "✓ done"),
         ("LSTM + Beam",       "Neural RNN",   "neural_model_2.py",    "~118",   "~0.45?", "~30ms",  "reuse LSTM ckpt"),
         ("AWD-LSTM",          "Reg. RNN",     "neural_model_2.py",    "~100?",  "~0.46?", "~12ms",  "need GPU train"),
-        ("ELMo",              "BiLSTM emb.",  "elmo_embeddings.py",   "n/a",    "—",      "~20ms",  "need GPU train"),
+        ("ELMo",              "BiLSTM emb.",  "elmo_embeddings.py",   "n/a",    "—",      "~20ms",  "optional GPU"),
         ("GPT-2 fine-tuned",  "Transformer",  "finetune_gpt2.py",     "~42.7",  "0.562",  "~80ms",  "✓ done"),
         ("Mamba SSM",         "SSM (2023)",   "mamba_model.py",       "~55?",   "~0.48?", "~25ms",  "need GPU train"),
         ("RAG Hybrid",        "Retrieval+GPT","rag_dense.py",         "n/a",    "~0.57?", "~120ms", "build index"),
@@ -982,4 +1005,4 @@ python -m src.evaluate_all --show-only   # see results without re-running
         pd.DataFrame(arch_data, columns=hdr),
         use_container_width=True, hide_index=True,
     )
-    st.caption("? = estimated, not yet measured. Run evaluate_all.py after training to fill in real numbers.")
+    st.caption("? = estimated, not yet measured. Run evaluate_2.py after training to fill in real numbers.")
