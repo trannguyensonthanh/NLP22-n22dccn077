@@ -274,6 +274,7 @@ class AWDLstmLM(nn.Module):
             in_dim  = emb_dim if i == 0 else hidden
             out_dim = hidden  if i < layers - 1 else emb_dim  # weight tying needs emb_dim
             raw_lstm = nn.LSTM(in_dim, out_dim, batch_first=True)
+            
             # Apply DropConnect
             self.lstms.append(raw_lstm)
 
